@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Lab5</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="https://unpkg.com/three@0.85.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.85.0/examples/js/Detector.js"></script>
+    <script src="https://unpkg.com/three@0.85.0/examples/js/libs/stats.min.js"></script>
+    <script src="https://unpkg.com/three@0.85.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.7/build/dat.gui.min.js"></script>
+    <script>
+      let container,
+        renderer,
+        scene,
+        camera,
+        controls,
+        children,
+        clock,
+        clipRotate,
+        clipDance,
+        dodecahedron
+
+      init()
+      animate()
+
+      function init() {
+        const innerW = window.innerWidth
+        const innerH = window.innerHeight
+
+        // renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true })
+        renderer.shadowMap.enabled = true
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap
+        renderer.setPixelRatio(window.devicePixelRatio)
+        renderer.setSize(innerW, innerH)
+        container = document.getElementById('container')
+        container.appendChild(renderer.domElement)
+
+        // world
+        scene = new THREE.Scene()
+        scene.fog = new THREE.FogExp2(0x1e2630, 0.002)
+        renderer.setClearColor(scene.fog.color)
+
+        // camera
+        camera = new THREE.PerspectiveCamera(60, innerW / innerH, 1, 2000)
+        camera.position.x = 80
+        camera.position.y = 35
+        camera.position.z = 80
+        camera.lookAt(new THREE.Vector3(0, 0, 0))
+        controls = new THREE.OrbitControls(camera, renderer.domElement)
+
+        // helpers
+        // const axes = new THREE.AxisHelper(250)
+        // scene.add(axes)
+        // const gridXZ = new THREE.GridHelper(500, 10)
+        // scene.add(gridXZ)
+
+        // lights
+        light = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5)
+        light.position.set(1, 1, 1)
+        scene.add(light)
+        light = new THREE.PointLight(0xffff00, 5, 300)
+        light.position.set(50, 50, 50)
+        light.castShadow = true
+        scene.add(light)
+
+        children = new THREE.Object3D()
+
+        const material = new THREE.MeshPhongMaterial({
+          color: 0xfb3550,
+          shading: THREE.FlatShading
+        })
+
+        // Dome
+        geometry = new THREE.IcosahedronGeometry(700, 1)
+        const domeMaterial = new THREE.MeshPhongMaterial({
+          color: 0xfb3550,
+          shading: THREE.FlatShading,
+          side: THREE.BackSide
+        })
+        const dome = new THREE.Mesh(geometry, domeMaterial)
+        scene.add(dome)
+
+        // sphere
+        geometry = new THREE.SphereGeometry(15, 10, 6)
+        const sphere = new THREE.Mesh(geometry, material.clone())
+        sphere.position.set(-60, 15, -50)
+        sphere.castShadow = true
+        sphere.receiveShadow = false
+        children.add(sphere)
+
+        //cylinder
+        geometry = new THREE.CylinderGeometry(0, 20, 40, 20)
+        const cylinder = new THREE.Mesh(
+          geometry,
+          new THREE.MeshNormalMaterial({ color: 0xfb3550 })
+        )
+        cylinder.position.set(-90, 20, 30)
+        cylinder.castShadow = true
+        cylinder.receiveShadow = false
+        children.add(cylinder)
+
+        //Dodecahedron
+        geometry = new THREE.DodecahedronGeometry(20, 0)
+        dodecahedron = new THREE.Mesh(
+          geometry,
+          new THREE.MeshLambertMaterial({ color: 0xfb3550 })
+        )
+        dodecahedron.position.set(10, 20, -30)
+        dodecahedron.castShadow = true
+        dodecahedron.receiveShadow = false
+        children.add(dodecahedron)
+
+        // Plate
+        geometry = new THREE.PlaneGeometry(500, 500)
+        const plate = new THREE.Mesh(
+          geometry,
+          new THREE.MeshStandardMaterial({ color: 0xfb3550 })
+        )
+        plate.receiveShadow = true
+        plate.rotateX(Math.PI / -2)
+        children.add(plate)
+
+        scene.add(children)
+
+        createPanel()
+      }
+
+      function createPanel() {
+        const panel = new dat.GUI({ width: 310 })
+
+        const folder = panel.addFolder('Sounds')
+
+        settings = {
+          passive: passive,
+          positionalAudio: positionalAudio
+        }
+
+        folder.add(settings, 'passive')
+        folder.add(settings, 'positionalAudio')
+        folder.open()
+      }
+
+      function passive() {
+        // create an AudioListener and add it to the camera
+        const listener = new THREE.AudioListener()
+        camera.add(listener)
+
+        // create a global audio source
+        const sound = new THREE.Audio(listener)
+
+        // load a sound and set it as the Audio object's buffer
+        const audioLoader = new THREE.AudioLoader()
+        audioLoader.load('a.ogg', function (buffer) {
+          sound.setBuffer(buffer)
+          sound.setLoop(true)
+          sound.setVolume(1)
+          sound.play()
+        })
+      }
+
+      function positionalAudio() {
+        // create an AudioListener and add it to the camera
+        const listener = new THREE.AudioListener()
+        camera.add(listener)
+
+        // create the PositionalAudio object (passing in the listener)
+        const sound = new THREE.PositionalAudio(listener)
+
+        // load a sound and set it as the PositionalAudio object's buffer
+        const audioLoader = new THREE.AudioLoader()
+        audioLoader.load('visi.ogg', function (buffer) {
+          sound.setBuffer(buffer)
+          sound.setRefDistance(20)
+          sound.play()
+        })
+
+        dodecahedron.add(sound)
+      }
+
+      function animate() {
+        requestAnimationFrame(animate)
+        renderer.render(scene, camera)
+      }
+    </script>
+  </body>
+</html>
